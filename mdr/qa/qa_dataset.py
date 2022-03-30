@@ -43,7 +43,10 @@ def prepare(item, tokenizer, special_toks=["[SEP]", "[unused1]", "[unused2]"]):
         """
         handle each para
         """
-        title, sents = para["title"].strip(), para["sents"]
+        key  = "text"
+        if key not in para:
+            key = "sents"
+        title, sents = para["title"].strip(), para[key]
         # return "[unused1] " + title + " [unused1] " + text # mark title
         # return title + " " + text
         pre_sents = []
@@ -52,6 +55,7 @@ def prepare(item, tokenizer, special_toks=["[SEP]", "[unused1]", "[unused2]"]):
         return title + " " + " ".join(pre_sents)
         # return " ".join(pre_sents)
     # mark passage boundary
+    
     contexts = []
     for para in item["passages"]:
         contexts.append(_process_p(para))
@@ -83,7 +87,7 @@ def prepare(item, tokenizer, special_toks=["[SEP]", "[unused1]", "[unused2]"]):
 
         if token in special_toks:
             if token == "[unused1]":
-                sent_starts.append(len(all_doc_tokens))
+                sent_starts.append(len(all_doc_tokens)) 
 
             sub_tokens = [token]
         else:
@@ -144,6 +148,7 @@ class QAEvalDataset(Dataset):
                     "gold_answer": gold_answer,
                     "sp_gold": sp_gold
                 })
+            #break
 
         print(f"Total instances size {len(self.data)}")
 
@@ -218,7 +223,10 @@ class QADataset(Dataset):
                     for sp in item["sp"]:
                         for _ in sp["sp_sent_ids"]:
                             sp_gold.append([sp["title"], _])
-                        for idx in range(len(sp["sents"])):
+                            key = "text"
+                            if key not in sp:
+                                key = "sents"
+                        for idx in range(len(sp[key])):
                             sp_sent_labels.append(int(idx in sp["sp_sent_ids"]))
 
                 question_type = item["type"]
@@ -236,7 +244,10 @@ class QADataset(Dataset):
 
                 sp_titles = set([_["title"] for _ in item["sp"]])
                 if question_type == "bridge":
-                    ans_titles = set([p["title"] for p in item["sp"] if para_has_answer(item["answer"], "".join(p["sents"]), self.simple_tok)])
+                    key = "text"
+                    if key not in item["sp"][0]:
+                        key = "sents"
+                    ans_titles = set([p["title"] for p in item["sp"] if para_has_answer(item["answer"], "".join(p[key]), self.simple_tok)])
                 else:
                     ans_titles = set()
                 # top ranked negative chains
@@ -296,6 +307,8 @@ class QADataset(Dataset):
                         "gold_answer": gold_answer,
                         "sp_gold": sp_gold
                     })
+
+                # break
 
         print(f"Data size {len(self.data)}")
 

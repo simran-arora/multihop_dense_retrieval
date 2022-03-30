@@ -8,6 +8,7 @@ import json
 from tqdm import tqdm
 import collections
 import re
+import ast
 from collections import Counter
 import string
 from basic_tokenizer import SimpleTokenizer, filter_ngram
@@ -171,7 +172,8 @@ def check_2hop(raw_path):
 
 
 def add_sp_labels(raw_path, input_file, save_path,
-                  title2sent_map="data/hotpot_index/title2sents.txt"):
+                  title2sent_map,
+                  title2sent_map_alt=""):
     """
     Add sp sentence supervision for QA model training
     
@@ -182,28 +184,64 @@ def add_sp_labels(raw_path, input_file, save_path,
     """
     # raw_train = json.load(open(raw_path + '/hotpot_train_v1.1.json'))
     # train = [json.loads(l) for l in open(raw_path + "/dense_train_b100_k100.json").readlines()]
-    raw_data = json.load(open(raw_path))
+
+    # raw_data = json.load(open(raw_path))
+    raw_data = []
+    with open(raw_path) as f:
+        for line in f:
+            line = ast.literal_eval(line)
+            raw_data.append(line)
+
     retrieved = [json.loads(l) for l in open(input_file).readlines()]
 
     # title2sents
-    title_and_sents = [json.loads(l) for l in open(title2sent_map).readlines()]
-    title2sents = {_['title']:_['sents'] for _ in title_and_sents}
+    title_and_sents = json.load(open(title2sent_map))
+    title2sents = {}
+    for title, sents in title_and_sents.items():
+        title2sents[title] = sents
 
-    for instance, raw in zip(retrieved, raw_data):
+    if title2sent_map_alt:
+        title_and_sents_alt = json.load(open(title2sent_map_alt))
+        for title, sents in title_and_sents_alt.items():
+            title2sents[title] = sents
+
+    raw_dict = {}
+    for item in raw_data:
+        raw_dict[item['_id']] = item
+
+    raw_ptr = 0
+    for instance in tqdm(retrieved):
+        raw = raw_dict[instance['_id']]
         assert instance["question"] == raw["question"]
 
         if "supporting_facts" in raw:
             orig_sp = raw["supporting_facts"]
             sptitle2sentids = collections.defaultdict(list)
             for _ in orig_sp:
-                sptitle2sentids[_[0]].append(_[1])
-
+                sptitle2sentids[_[0]].append(_[1]) 
+                
             instance["sp"] = []
-
+            # sents = raw["sents"]
+            
             for title in sptitle2sentids.keys():
                 instance["sp"].append({"title": title, "sents": title2sents[title], "sp_sent_ids": sptitle2sentids[title]})
-        
-            instance["answer"] = [raw["answer"]]
+
+            answers = raw["answer"]
+            if type(answers) == str:
+                answers = [answers]
+            instance["answer"] = answers
+            instance["type"] = raw["type"]
+        elif 'sp' in raw:
+            orig_sp = raw['sp']
+            orig_sp[0]['sp_sent_ids'] = orig_sp[0]['sp_sent_idx'].copy()
+            orig_sp[1]['sp_sent_ids'] = orig_sp[1]['sp_sent_idx'].copy()
+            instance["sp"] = [orig_sp[0], orig_sp[1]]
+
+            answers = raw["answer"]
+            if type(answers) == str:
+                answers = [answers]
+            instance["answer"] = answers
+            instance["type"] = raw["type"]
 
     with open(save_path, "w") as out:
         for l in retrieved:
@@ -264,4 +302,8 @@ def add_sents_to_corpus_dict():
 
 if __name__ == "__main__":
     original_hotpot_data, retrieved, output_path = sys.argv[1], sys.argv[2], sys.argv[3]
-    add_sp_labels(original_hotpot_data, retrieved, output_path)
+    if len(sys.argv) > 4:
+        title2sent_map = sys.argv[4]
+        add_sp_labels(original_hotpot_data, retrieved, output_path, title2sent_map=title2sent_map, title2sent_map_alt=title2sent_map)
+    else:
+        add_sp_labels(original_hotpot_data, retrieved, output_path)

@@ -1,6 +1,6 @@
+We have implemented the PAIR framework over the MDR baseline retrieval method. Please use the instructions provided in our README. 
 
-
-
+<hr/>
 
 # [<p align=center>Multi-Hop Dense Text Retrieval (`MDR`)</p>](#p-aligncentermulti-hop-dense-text-retrieval-mdrp)
 

@@ -29,11 +29,14 @@ class MhopDataset(Dataset):
         self.data = [json.loads(line) for line in open(data_path).readlines()]
         if train:
 
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
 
             # debug TODO: remove for final release
-            for idx in range(len(self.data)):
-                self.data[idx]["neg_paras"] = self.data[idx]["tfidf_neg"]
+            if "tfidf_neg" in self.data[0]:
+                for idx in range(len(self.data)):
+                    self.data[idx]["neg_paras"] = self.data[idx]["tfidf_neg"]
+            else:
+                print("Not using TFIDF NEGs")
 
 
             self.data = [_ for _ in self.data if len(_["neg_paras"]) >= 2]
@@ -43,26 +46,30 @@ class MhopDataset(Dataset):
         return self.tokenizer.encode_plus(para["title"].strip(), text_pair=para["text"].strip(), max_length=max_len, return_tensors="pt")
     
     def __getitem__(self, index):
-        sample = self.data[index]
-        question = sample['question']
-        if question.endswith("?"):
-            question = question[:-1]
-        if sample["type"] == "comparison":
-            random.shuffle(sample["pos_paras"])
-            start_para, bridge_para = sample["pos_paras"]
-        else:
-            for para in sample["pos_paras"]:
-                if para["title"] != sample["bridge"]:
-                    start_para = para
-                else:
-                    bridge_para = para
-        if self.train:
-            random.shuffle(sample["neg_paras"])
+        try:
+            sample = self.data[index]
+            question = sample['question']
+            if question.endswith("?"):
+                question = question[:-1]
+            if sample["type"] == "comparison":
+                random.shuffle(sample["pos_paras"])
+                start_para, bridge_para = sample["pos_paras"]
+            else:
+                for para in sample["pos_paras"]:
+                    if para["title"] != sample["bridge"]:
+                        start_para = para
+                    else:
+                        bridge_para = para
+            if self.train:
+                random.shuffle(sample["neg_paras"])
 
-        start_para_codes = self.encode_para(start_para, self.max_c_len)
-        bridge_para_codes = self.encode_para(bridge_para, self.max_c_len)
-        neg_codes_1 = self.encode_para(sample["neg_paras"][0], self.max_c_len)
-        neg_codes_2 = self.encode_para(sample["neg_paras"][1], self.max_c_len)
+            start_para_codes = self.encode_para(start_para, self.max_c_len)
+            bridge_para_codes = self.encode_para(bridge_para, self.max_c_len)
+            neg_codes_1 = self.encode_para(sample["neg_paras"][0], self.max_c_len)
+            neg_codes_2 = self.encode_para(sample["neg_paras"][1], self.max_c_len)
+        except:
+            print(sample["pos_paras"])
+            print(sample['bridge'])
 
         q_sp_codes = self.tokenizer.encode_plus(question, text_pair=start_para["text"].strip(), max_length=self.max_q_sp_len, return_tensors="pt")
         q_codes = self.tokenizer.encode_plus(question, max_length=self.max_q_len, return_tensors="pt")
@@ -101,7 +108,6 @@ def mhop_collate(samples, pad_id=0):
             
             'neg2_input_ids': collate_tokens([s["neg_codes_2"]["input_ids"] for s in samples], 0),
             'neg2_mask': collate_tokens([s["neg_codes_2"]["attention_mask"] for s in samples], 0),
-            
         }
 
     if "token_type_ids" in samples[0]["q_codes"]:

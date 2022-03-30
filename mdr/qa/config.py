@@ -47,9 +47,14 @@ def common_args():
                         help="Whether not to use CUDA when available")
     parser.add_argument("--local_rank", type=int, default=-1,
                         help="local_rank for distributed training on gpus")
+    parser.add_argument("--world_size", type=int, default=1,
+                        help="world_size for distributed training on gpus")
+    parser.add_argument("--rndv_path", type=str, default="",
+                        help="rndv_filepath for shared filesystem initialization")
     parser.add_argument("--predict_batch_size", default=256,
                         type=int, help="Total batch size for predictions.")
     parser.add_argument("--save-prediction", default="", type=str)
+    parser.add_argument("--save_raw_results", default="", type=str)
 
     parser.add_argument("--sp-pred", action="store_true", help="whether to predict sentence sp")
     return parser

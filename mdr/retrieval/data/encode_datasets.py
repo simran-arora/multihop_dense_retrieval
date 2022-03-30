@@ -15,6 +15,11 @@ import unicodedata
 import re
 import os
 
+def clean_enron_titles(title):
+    title = title.replace("Enron Email Number: ","")
+    title = title.replace("PERSONAL_", "")
+    return title
+
 def normalize(text):
     """Resolve different type of unicode encodings."""
     return unicodedata.normalize('NFD', text)
@@ -60,7 +65,7 @@ class EmDataset(Dataset):
                     for row in reader:
                         if row[0] != 'id':
                             id_, text, title = row[0], row[1], row[2]
-                            self.data.append({"id": id_, "text": text, "title": title})
+                            self.data.append({"id": clean_enron_titles(id_), "text": text, "title": clean_enron_titles(title)})
             elif "fever" in data_path:
                 raw_data = [json.loads(l) for l in tqdm(open(data_path).readlines())]
                 self.data = []
@@ -71,11 +76,15 @@ class EmDataset(Dataset):
 
                     self.data.append(_)
             else:
-                self.data = [json.loads(l) for l in open(data_path).readlines()]
+                with open(data_path) as f:
+                    data_contents = json.load(f)
+                self.data = [doc for _,doc in data_contents.items()]
             print(f"load {len(self.data)} documents...")
             id2doc = {}
+
+
             for idx, doc in enumerate(self.data):
-                id2doc[idx] = (doc["title"], doc["text"], doc.get("intro", False))
+                id2doc[idx] = (clean_enron_titles(doc["title"]), doc["text"], doc.get("intro", False))
             with open(save_path, "w") as g:
                 json.dump(id2doc, g)
 
@@ -92,7 +101,10 @@ class EmDataset(Dataset):
         # if sample["text"].endswith("."):
         #     sample["text"] = sample["text"][:-1]
 
-        sent_codes = self.tokenizer.encode_plus(normalize(sample["title"].strip()), text_pair=sample['text'].strip(), max_length=self.max_len, return_tensors="pt")
+        try:
+            sent_codes = self.tokenizer.encode_plus(normalize(sample["title"].strip()), text_pair=sample['text'].strip(), max_length=self.max_len, return_tensors="pt")
+        except:
+            print(index)
 
         return sent_codes
 
