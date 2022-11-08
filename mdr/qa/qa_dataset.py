@@ -133,7 +133,12 @@ class QAEvalDataset(Dataset):
             gold_answer = item.get("answer", [])
             sp_gold = []
 
-            for chain in item["candidate_chains"]:
+            if "candidate_chains" in item.keys():
+                key = "candidate_chains"
+            else:
+                key = "ctxs"
+
+            for chain in item[key]:
                 chain_titles = [_["title"] for _ in chain]
 
                 if sp_titles:
@@ -287,7 +292,15 @@ class QADataset(Dataset):
                             sp_gold.append([sp["title"], _])
 
                 chain_seen = set()
-                for chain in item["candidate_chains"]:
+                if "candidate_chains" in item.keys():
+                    key = "candidate_chains"
+                else:
+                    key = "ctxs"
+                # import pdb;
+                # pdb.set_trace()
+                for chain in item[key]:
+                    if type(chain) != list:
+                        chain = [chain]
                     chain_titles = [_["title"] for _ in chain]
 
                     # title_set = frozenset(chain_titles)
